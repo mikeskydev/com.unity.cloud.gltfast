@@ -500,6 +500,9 @@ namespace GLTFast
                 return;
             }
             var lightGameObject = m_Nodes[nodeIndex];
+#if UNITY_ANIMATION
+            var animatedLight = lightGameObject.AddComponent<AnimatedLight>();
+#endif
             var lightSource = m_Gltf.GetSourceLightPunctual(lightIndex);
 
             if (lightSource.GetLightType() != LightPunctual.Type.Point)
@@ -512,6 +515,10 @@ namespace GLTFast
                 lightGameObject = tmp;
             }
             var light = lightGameObject.AddComponent<Light>();
+#if UNITY_ANIMATION
+            animatedLight.SetTargetLight(light);
+            animatedLight.SetIntensityMultiplier(m_Settings.LightIntensityFactor);
+#endif
             lightSource.ToUnityLight(light, m_Settings.LightIntensityFactor);
             SceneInstance.AddLight(light);
         }

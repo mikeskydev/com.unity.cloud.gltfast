@@ -33,7 +33,7 @@ namespace GLTFast {
                     break;
                 case string p when p.StartsWith("/extensions/KHR_lights_punctual/lights/"):
                     PointerType = PointerType.Light;
-                    AnimationTargetType = typeof(UnityEngine.Light);
+                    AnimationTargetType = typeof(AnimatedLight);
                     TargetId = ParseTargetId(pointerPath["/extensions/KHR_lights_punctual/lights/".Length..]);
                     Target = pointerPath[$"/extensions/KHR_lights_punctual/lights/{TargetId}/".Length..];
                     break;
@@ -111,6 +111,29 @@ namespace GLTFast {
                     AnimationProperties = new[] {"material.occlusionTexture_strength"};
                     accessorType = GltfAccessorAttributeType.SCALAR;
                     break;
+
+                // KHR_lights_punctual
+                case "color":
+                    AnimationProperties = new [] {"Color.r", "Color.g", "Color.b"};
+                    accessorType = GltfAccessorAttributeType.VEC3;
+                    break;
+                case "intensity":
+                    AnimationProperties = new [] {"Intensity"};
+                    accessorType = GltfAccessorAttributeType.SCALAR;
+                    break;
+                case "range":
+                    AnimationProperties = new [] {"Range"};
+                    accessorType = GltfAccessorAttributeType.SCALAR;
+                    break;
+                case "spot/outerConeAngle":
+                    AnimationProperties = new [] {"OuterConeAngle"};
+                    accessorType = GltfAccessorAttributeType.SCALAR;
+                    break;
+                case "spot/innerConeAngle":
+                    AnimationProperties = new [] {"InnerConeAngle"};
+                    accessorType = GltfAccessorAttributeType.SCALAR;
+                    break;
+
                 // KHR_materials_transmission
                 case "extensions/KHR_materials_transmission/transmissionFactor":
                     AnimationProperties = new[] {"material.transmissionFactor"};
