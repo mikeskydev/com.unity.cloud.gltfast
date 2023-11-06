@@ -273,6 +273,7 @@ namespace GLTFast
 #if UNITY_ANIMATION
         AnimationClip[] m_AnimationClips;
         Dictionary<int, List<int>> m_CameraUsages;
+        Dictionary<int, List<int>> m_LightUsages;
         Dictionary<int, List<int>> m_MaterialUsages;
         Dictionary<int, List<int>> m_NodeUsages;
 #endif
@@ -2143,6 +2144,7 @@ namespace GLTFast
                 if (pointerExtension) {
 
                     m_CameraUsages = new Dictionary<int, List<int>>();
+                    m_LightUsages = new Dictionary<int, List<int>>();
                     m_NodeUsages = new Dictionary<int, List<int>>();
 
 
@@ -2161,6 +2163,13 @@ namespace GLTFast
                                 m_CameraUsages.Add(node.camera, new List<int>());
                             }
                             m_CameraUsages[node.camera].Add(nodeId);
+                        }
+
+                        if(node.Extensions?.KHR_lights_punctual != null && node.Extensions.KHR_lights_punctual.light >= 0) {
+                            if(!m_LightUsages.ContainsKey(node.Extensions.KHR_lights_punctual.light)) {
+                                m_LightUsages.Add(node.Extensions.KHR_lights_punctual.light, new List<int>());
+                            }
+                            m_LightUsages[node.Extensions.KHR_lights_punctual.light].Add(nodeId);
                         }
                     }
 
@@ -2258,6 +2267,9 @@ namespace GLTFast
                                 break;
                             case TargetType.Material:
                                 nodeList = m_MaterialUsages[animationData.TargetId];
+                                break;
+                            case TargetType.Light:
+                                nodeList = m_LightUsages[animationData.TargetId];
                                 break;
                             case TargetType.Node:
                                 nodeList.Add(animationData.TargetId);
