@@ -273,10 +273,10 @@ namespace GLTFast
         Matrix4x4[][] m_SkinsInverseBindMatrices;
 #if UNITY_ANIMATION
         AnimationClip[] m_AnimationClips;
-        Dictionary<int, List<int>> m_CameraLookup;
-        Dictionary<int, List<int>> m_LightLookup;
-        Dictionary<int, List<int>> m_MaterialLookup;
-        Dictionary<int, List<int>> m_NodeLookup;
+        Dictionary<int, List<int>> m_CameraUsages;
+        Dictionary<int, List<int>> m_LightUsages;
+        Dictionary<int, List<int>> m_MaterialUsages;
+        Dictionary<int, List<int>> m_NodeUsages;
 #endif
 
 #if UNITY_EDITOR
@@ -1831,7 +1831,6 @@ namespace GLTFast
             }
 
             m_Resources = new List<UnityEngine.Object>();
-            m_MaterialLookup = new Dictionary<int, List<int>>();
 
             if (Root.Images != null && Root.Textures != null && Root.Materials != null)
             {
@@ -2073,35 +2072,36 @@ namespace GLTFast
 #if UNITY_ANIMATION
             if (Root.HasAnimation && m_Settings.AnimationMethod != AnimationMethod.None) {
                 // Enumerate for KHR_animation_pointer
-                if (Array.IndexOf(Root.extensionsUsed, ExtensionName.AnimationPointer) > -1) {
+                bool pointerExtension = Root.extensionsUsed != null && Array.IndexOf(Root.extensionsUsed, ExtensionName.AnimationPointer) > -1;
+                if (pointerExtension) {
 
-                    m_CameraLookup = new Dictionary<int, List<int>>();
-                    m_LightLookup = new Dictionary<int, List<int>>();
-                    m_NodeLookup = new Dictionary<int, List<int>>();
+                    m_CameraUsages = new Dictionary<int, List<int>>();
+                    m_LightUsages = new Dictionary<int, List<int>>();
+                    m_NodeUsages = new Dictionary<int, List<int>>();
 
 
                     for (int nodeId = 0; nodeId < Root.Nodes.Count; nodeId++) {
                         var node = Root.Nodes[nodeId];
 
                         if (Root.Nodes[nodeId].mesh > 0) {
-                            if (!m_NodeLookup.ContainsKey(Root.Nodes[nodeId].mesh)) {
-                                m_NodeLookup.Add(node.mesh, new List<int>());
+                            if (!m_NodeUsages.ContainsKey(Root.Nodes[nodeId].mesh)) {
+                                m_NodeUsages.Add(node.mesh, new List<int>());
                             }
-                            m_NodeLookup[node.mesh].Add(nodeId);
+                            m_NodeUsages[node.mesh].Add(nodeId);
                         }
 
                         if(node.camera > 0) {
-                            if(!m_CameraLookup.ContainsKey(node.camera)) {
-                                m_CameraLookup.Add(node.camera, new List<int>());
+                            if(!m_CameraUsages.ContainsKey(node.camera)) {
+                                m_CameraUsages.Add(node.camera, new List<int>());
                             }
-                            m_CameraLookup[node.camera].Add(nodeId);
+                            m_CameraUsages[node.camera].Add(nodeId);
                         }
 
                         if(node.Extensions?.KHR_lights_punctual != null && node.Extensions.KHR_lights_punctual.light >= 0) {
-                            if(!m_LightLookup.ContainsKey(node.Extensions.KHR_lights_punctual.light)) {
-                                m_LightLookup.Add(node.Extensions.KHR_lights_punctual.light, new List<int>());
+                            if(!m_LightUsages.ContainsKey(node.Extensions.KHR_lights_punctual.light)) {
+                                m_LightUsages.Add(node.Extensions.KHR_lights_punctual.light, new List<int>());
                             }
-                            m_LightLookup[node.Extensions.KHR_lights_punctual.light].Add(nodeId);
+                            m_LightUsages[node.Extensions.KHR_lights_punctual.light].Add(nodeId);
                         }
                     }
 
@@ -2118,20 +2118,20 @@ namespace GLTFast
                         }
                     }
 
-                    m_MaterialLookup = new Dictionary<int, List<int>>();
+                    m_MaterialUsages = new Dictionary<int, List<int>>();
 
                     for (int materialId = 0; materialId < Root.Materials.Count; materialId++) {
                         if (primMaterialLookup.ContainsKey(materialId))
                         {
-                            if(!m_MaterialLookup.ContainsKey(materialId)) {
-                                m_MaterialLookup.Add(materialId, new List<int>());
+                            if(!m_MaterialUsages.ContainsKey(materialId)) {
+                                m_MaterialUsages.Add(materialId, new List<int>());
                             }
 
                             foreach (var meshId in primMaterialLookup[materialId])
                             {
-                                if (m_NodeLookup.ContainsKey(meshId))
+                                if (m_NodeUsages.ContainsKey(meshId))
                                 {
-                                    m_MaterialLookup[materialId].AddRange(m_NodeLookup[meshId]);
+                                    m_MaterialUsages[materialId].AddRange(m_NodeUsages[meshId]);
                                 }
                             }
                         }
@@ -2161,30 +2161,59 @@ namespace GLTFast
                         }
 
                         var times = ((AccessorNativeData<float>) m_AccessorData[sampler.input]).data;
+                        AnimationData animationData = new AnimationData();
 
                         switch (channel.Target.GetPath()) {
-                            case AnimationChannel.Path.Translation: {
-                                var path = AnimationUtils.CreateAnimationPath(channel.Target.node,m_NodeNames,parentIndex);
-                                var values= ((AccessorNativeData<Vector3>) m_AccessorData[sampler.output]).data;
-                                AnimationUtils.AddTranslationCurves(m_AnimationClips[i], path, times, values, sampler.GetInterpolationType());
+                            case AnimationChannel.Path.Translation:
+                                animationData = AnimationData.TranslationData();
+                                animationData.TargetId = channel.Target.node;
                                 break;
-                            }
-                            case AnimationChannel.Path.Rotation: {
-                                var path = AnimationUtils.CreateAnimationPath(channel.Target.node,m_NodeNames,parentIndex);
-                                var values= ((AccessorNativeData<Quaternion>) m_AccessorData[sampler.output]).data;
-                                AnimationUtils.AddRotationCurves(m_AnimationClips[i], path, times, values, sampler.GetInterpolationType());
+                            case AnimationChannel.Path.Rotation:
+                                animationData = AnimationData.RotationData();
+                                animationData.TargetId = channel.Target.node;
                                 break;
-                            }
-                            case AnimationChannel.Path.Scale: {
-                                var path = AnimationUtils.CreateAnimationPath(channel.Target.node,m_NodeNames,parentIndex);
-                                var values= ((AccessorNativeData<Vector3>) m_AccessorData[sampler.output]).data;
-                                AnimationUtils.AddScaleCurves(m_AnimationClips[i], path, times, values, sampler.GetInterpolationType());
+                            case AnimationChannel.Path.Scale:
+                                animationData = AnimationData.ScaleData();
+                                animationData.TargetId = channel.Target.node;
                                 break;
-                            }
-                            case AnimationChannel.Path.Weights: {
-                                var path = AnimationUtils.CreateAnimationPath(channel.Target.node,m_NodeNames,parentIndex);
-                                var values= ((AccessorNativeData<float>) m_AccessorData[sampler.output]).data;
-                                var node = Root.Nodes[channel.Target.node];
+                            case AnimationChannel.Path.Weights:
+                                animationData = AnimationData.WeightData();
+                                animationData.TargetId = channel.Target.node;
+                                break;
+                            case AnimationChannel.Path.Pointer:
+                                var rawPointer = channel.Target.extensions.KHR_animation_pointer.pointer;
+                                animationData = AnimationData.GeneratePointerData(rawPointer);
+                                break;
+                            default:
+                                break;
+                        }
+
+                        if (animationData.TargetId < 0)
+                            break;
+
+                        var nodeList = new List<int>();
+
+                        switch(animationData.TargetType) {
+                            case TargetType.Camera:
+                                nodeList = m_CameraUsages[animationData.TargetId];
+                                break;
+                            case TargetType.Material:
+                                nodeList = m_MaterialUsages[animationData.TargetId];
+                                break;
+                            case TargetType.Light:
+                                nodeList = m_LightUsages[animationData.TargetId];
+                                break;
+                            case TargetType.Node:
+                                nodeList.Add(animationData.TargetId);
+                                break;
+                        }
+                    
+                        foreach (var nodeId in nodeList) {
+                            var path = AnimationUtils.CreateAnimationPath(nodeId,m_NodeNames,parentIndex);
+
+                            if(animationData.TargetProperty.Equals("weights")) {
+                                var values = ((AccessorNativeData<float>) m_AccessorData[sampler.output]).data;
+                                var node = Root.Nodes[animationData.TargetId];
                                 if (node.mesh < 0 || node.mesh >= Root.Meshes.Count) {
                                     break;
                                 }
@@ -2221,44 +2250,14 @@ namespace GLTFast
                                 // HACK END
                                 break;
                             }
-                            case AnimationChannel.Path.Pointer: {
-                                var rawPointer = channel.Target.extensions.KHR_animation_pointer.pointer;
-                                var pointerData = new AnimationPointerData(rawPointer);
-
-                                if (pointerData.TargetId < 0)
-                                    break;
-
-                                var nodeList = new List<int>();
-
-                                switch(pointerData.PointerType) {
-                                    case PointerType.Camera:
-                                        nodeList = m_CameraLookup[pointerData.TargetId];
-                                        break;
-                                    case PointerType.Material:
-                                        nodeList = m_MaterialLookup[pointerData.TargetId];
-                                        break;
-                                    case PointerType.Light:
-                                        nodeList = m_LightLookup[pointerData.TargetId];
-                                        break;
-                                }
-
-                                foreach (var nodeId in nodeList) {
-                                    var path = AnimationUtils.CreateAnimationPath(nodeId,m_NodeNames,parentIndex);
-
-                                    AnimationUtils.AddCurve(
-                                        m_AnimationClips[i],
-                                        path,
-                                        pointerData,
-                                        times,
-                                        m_AccessorData[sampler.output],
-                                        sampler.GetInterpolationType()
-                                    ); 
-                                }
-                                break;
-                            }
-                            default:
-                                m_Logger?.Error(LogCode.AnimationTargetPathUnsupported,channel.Target.GetPath().ToString());
-                                break;
+                            AnimationUtils.AddCurve(
+                                m_AnimationClips[i],
+                                path,
+                                animationData,
+                                times,
+                                m_AccessorData[sampler.output],
+                                sampler.GetInterpolationType()
+                            ); 
                         }
                     }
                 }
