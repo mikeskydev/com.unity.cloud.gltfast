@@ -197,36 +197,7 @@ namespace GLTFast {
                     data.PropertyNames = new[] {"material.transmissionFactor"};
                     data.AccessorType = GltfAccessorAttributeType.SCALAR;
                     break;
-
-                // KHR_texture_transform
-                case "pbrMetallicRoughness/baseColorTexture/extensions/KHR_texture_transform/scale":
-                    template = "material.baseColorTexture_ST.";
-                    data.PropertyNames = new[] {$"{template}x", $"{template}y"};
-                    data.AccessorType = GltfAccessorAttributeType.VEC2;
-                    break;
-                case "pbrMetallicRoughness/baseColorTexture/extensions/KHR_texture_transform/offset":
-                    template = "material.baseColorTexture_ST.";
-                    data.PropertyNames = new[] {$"{template}z", $"{template}w"};
-                    data.AccessorType = GltfAccessorAttributeType.VEC2;
-                    break;
-                case "pbrMetallicRoughness/baseColorTexture/extensions/KHR_texture_transform/rotation":
-                    data.PropertyNames = new[] {"material.baseColorTexture_Rotation"};
-                    data.AccessorType = GltfAccessorAttributeType.SCALAR;
-                    break;
-                case "pbrMetallicRoughness/normalTexture/extensions/KHR_texture_transform/scale":
-                    template = "material.normalTexture_ST.";
-                    data.PropertyNames = new[] {$"{template}x", $"{template}y"};
-                    data.AccessorType = GltfAccessorAttributeType.VEC2;
-                    break;
-                case "pbrMetallicRoughness/normalTexture/extensions/KHR_texture_transform/offset":
-                    template = "material.normalTexture_ST.";
-                    data.PropertyNames = new[] {$"{template}z", $"{template}w"};
-                    data.AccessorType = GltfAccessorAttributeType.VEC2;
-                    break;
-                case "pbrMetallicRoughness/normalTexture/extensions/KHR_texture_transform/rotation":
-                    data.PropertyNames = new[] {"material.normalTexture_Rotation"};
-                    data.AccessorType = GltfAccessorAttributeType.SCALAR;
-                    break;
+                    
                 default:
 #if DEBUG
                     Debug.LogWarning($"glTF animation pointer {pointerPath} is not supported.");
