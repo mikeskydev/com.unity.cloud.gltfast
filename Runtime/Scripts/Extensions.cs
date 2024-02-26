@@ -50,7 +50,7 @@ namespace GLTFast
         /// </summary>
         MaterialsClearcoat,
         /// <summary>
-        /// <see href="https://github.com/ux3d/glTF/blob/extensions/KHR_animation_pointer/extensions/2.0/Khronos/KHR_animation_pointer/README.md">KHR_texture_transform</see> glTF extension
+        /// <see href="https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_animation_pointer/README.md">KHR_animation_pointer</see> glTF extension
         /// </summary>
         AnimationPointer,
     }
@@ -105,7 +105,7 @@ namespace GLTFast
         /// </summary>
         public const string MaterialsClearcoat = "KHR_materials_clearcoat";
         /// <summary>
-        /// <see href="https://github.com/ux3d/glTF/blob/extensions/KHR_animation_pointer/extensions/2.0/Khronos/KHR_animation_pointer/README.md">KHR_texture_transform</see> glTF extension
+        /// <see href="https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_animation_pointer/README.md">KHR_animation_pointer</see> glTF extension
         /// </summary>
         public const string AnimationPointer = "KHR_animation_pointer";
 
