@@ -5,7 +5,10 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "glTFast",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "glTFast.Tests",
+        "glTFast.Editor",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"
@@ -20,6 +23,12 @@
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "",
+            "define": "USING_URP"
+        }
+    ],
     "noEngineReferences": false
 }

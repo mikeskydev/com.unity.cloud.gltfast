@@ -4,15 +4,91 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [6.4.0] - 2024-04-17
+
+### Added
+- Tests for all `GltfImport.Load` overloads.
+- Tests for all import Burst jobs.
+- `ICodeLogger.Log` for dynamic LogType usage.
+
+### Changed
+- *Emission* sub graph uses shader define `SHADEROPTIONS_PRE_EXPOSITION` for HDRP usage detection (replacing a custom function node that checked for `UNITY_HEADER_HD_INCLUDED`).
+- *BaseColor* sub graph uses built-in shader define [`UNITY_COLORSPACE_GAMMA`](https://docs.unity3d.com/ScriptReference/Rendering.BuiltinShaderDefine.UNITY_COLORSPACE_GAMMA.html) for project color space detection (replacing a custom function node).
+
+### Fixed
+- Shader sub graphs *BaseColor* and *Emission* are now compatible with [PolySpatial visionOS][PolySpatialVisionOS].
+- On Apple visionOS, textures are always created readable, so that [PolySpatial visionOS][PolySpatialVisionOS] is able to convert them.
+- Draco compressed tangents import tangents correctly now.
+- Removed invalid attempt to calculate normals or tangents on point or line meshes.
+- Consistent log message when a glTF extension cannot be supported due to a missing Unity package depenency (e.g. [KTX for Unity][KtxForUnity]).
+  - All missing extensions are logged (not just the first one).
+  - There's now a single message per missing package.
+  - Depending on whether that extension is required the message's type is warning or error.
+  - Added explicit message when [*meshoptimizer decompression for Unity*][meshoptUnity] is missing.
+
+## [6.3.0] - 2024-03-27
+
+## Added
+- Runtime import tests.
+- Runtime export tests.
+- (Export) Added development-time checks for valid JSON string literals.
+- Added Apple Privacy Manifest file to `/Plugins` directory.
+
+## Changed
+- Refactored test scripts folder layout.
+- (Export) Normal maps are exported in PNG format by default.
+- (Export) HDRP area lights are still exported as spot-lights, but their intensity is taken from `Light.intensity` (still incorrect, but more consistent).
+- Switched from asset-path-based to GUID-based shader loading (in the Editor 2021 and newer) in order to allow for a flexible folder layout without risking breaks/regressions should the layout change in the future.
+- Avoid expensive UnityEngine.Object null check when accessing cached default shaders.
+
+## Fixed
+- Exception when required glTF shader is not included.
+- Compiler errors when safe mode (`GLTFAST_SAFE` scripting define) is enabled.
+- Compiler error with High Definition Render Pipeline version 17 (2023.3)
+- Removed usage of obsolete APIs in High Definition Render Pipeline version 17 (2023.3)
+- (Export) Area light's range value is exported accurately (as shown in the inspector).
+- Various occasions of `NullReferenceException` when no logger is used/provided.
+- Proper error handling when trying to load unsupported sparse texture coordinates.
+- Ensure that special chars in string values don't lead to invalid JSON.
+- Using invariant culture `ToLower`/`ToUpper` variants on all non-language-specific data.
+- Added missing `GetHashCode` implementation (removes compiler warning).
+- Compiler errors and warnings on newer HDRP versions (16.x/17.x)
+- URP clearcoat shader loading at runtime.
+- HDRP stack-lit shader loading at runtime.
+
+## [6.2.0] - 2024-01-29
+
+### Added
+- Deprecated soft-dependency packages are detected and a warning with upgrade instructions is shown in the console.
+
+### Changed
+- Support for Draco 3D Data Compression is now provided by [*Draco for Unity* (com.unity.cloud.draco)][DracoForUnity], which is a fork of and replaces [*DracoUnity* (com.atteneder.draco)][DracoUnity].
+
+### Fixed
+- Compiler error when Newtonsoft JSON package was not installed.
+- All Draco vertex attributes are assigned by identifier instead of type. As a result, tangents are now decoded properly instead of recalculated.
+- Compilation error when scripting define `GLTFAST_BUILTIN_SHADER_GRAPH` is set.
+- `GltfImport.IsTextureYFlipped` returns correct result for non-KTX textures.
+
+## [6.1.0] - 2024-01-17
+
+### Added
+- (Documentation) Explanation and user case for the add-on API
+- `GltfImport.IsTextureYFlipped` to support non-default texture orientations
 
 ### Changed
 - Documentation improvements
+- Auto-formatted all markdown, USS, UXML and shader code
+- CI maintenance
+
+### Fixed
+- Updated references to [KTX for Unity][KtxForUnity]
 
 ## [6.0.1] - 2023-10-11
 
 ### Fixed
 - Compilation error when Animation module is disabled and Newtonsoft JSON package installed.
+- Compilation on Unity 2020 LTS
 
 ## [6.0.0] - 2023-10-04
 
@@ -496,7 +572,7 @@ This release contains multiple breaking changes. Please read the [upgrade guide]
 ## [4.3.4] - 2021-10-26
 
 ### Added
-- Option to turn off Editor import by adding `GLTFAST_EDITOR_IMPORT_OFF` to the project's *Scripting Define Symbols* in the *Player Settings* (#256)  
+- Option to turn off Editor import by adding `GLTFAST_EDITOR_IMPORT_OFF` to the project's *Scripting Define Symbols* in the *Player Settings* (#256)
 
 ### Fixed
 - Import of glTFs with no meshes (#257)
@@ -682,7 +758,7 @@ This release contains multiple breaking changes. Please read the [upgrade guide]
 - Support for unsigned byte joint indices
 
 ### Changed
-- Accelerated loading meshes by obtaining and setting bounds from accessors min/max values instead of recalculating them  
+- Accelerated loading meshes by obtaining and setting bounds from accessors min/max values instead of recalculating them
 - Improved log message when DracoUnity/KtxUnity packages are missing
 - Restored/simplified `GLTFast.LoadGltfBinary`, allowing users to load glTF binary files from byte arrays directly (also added documentation; fixes #148)
 
@@ -1051,8 +1127,12 @@ This release contains multiple breaking changes. Please read the [upgrade guide]
 
 [Entities1.0]: https://docs.unity3d.com/Packages/com.unity.entities@1.0
 [KtxUnity]: https://github.com/atteneder/KtxUnity
+[KtxForUnity]: https://docs.unity3d.com/Packages/com.unity.cloud.ktx@latest/
 [DanDovi]: https://github.com/DanDovi
+[DracoForUnity]: https://docs.unity3d.com/Packages/com.unity.cloud.draco@latest
 [DracoUnity]: https://github.com/atteneder/DracoUnity
+[PolySpatialVisionOS]: https://docs.unity3d.com/Packages/com.unity.polyspatial.visionos@latest/
+[meshoptUnity]: https://docs.unity3d.com/Packages/com.unity.meshopt.decompress@latest/
 [aurorahcx]: https://github.com/aurorahcx
 [Battlehub0x]: https://github.com/Battlehub0x
 [Bersaelor]: https://github.com/Bersaelor

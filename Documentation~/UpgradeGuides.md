@@ -31,7 +31,7 @@ Unity forks have been created for *KtxUnity* and *DracoUnity* as well. If you've
 See their respective upgrade guides
 
 - Upgrade to [*KTX for Unity*](https://docs.unity3d.com/Packages/com.unity.cloud.ktx@3.2/manual/upgrade-guide.html)
-- Upgrade to *Draco for Unity* (coming soon)
+- Upgrade to [*Draco for Unity*](https://docs.unity3d.com/Packages/com.unity.cloud.draco@5.0/manual/upgrade-guide.html)
 
 ### Keep using the original glTFast
 
@@ -153,7 +153,7 @@ async void Start() {
     var instantiator = new GameObjectInstantiator(gltfImport,transform);
     var success = gltfImport.InstantiateMainScene(instantiator);
     if (success) {
-        
+
         // Get the SceneInstance to access the instance's properties
         var sceneInstance = instantiator.SceneInstance;
 

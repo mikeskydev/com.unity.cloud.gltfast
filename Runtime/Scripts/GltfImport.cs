@@ -8,7 +8,7 @@
 #if KTX_UNITY_2_2_OR_NEWER || (!UNITY_2021_2_OR_NEWER && KTX_UNITY_1_3_OR_NEWER)
 #define KTX
 #elif KTX_UNITY
-#warning You have to update KtxUnity to enable support for KTX textures in glTFast
+#warning You have to update *KTX for Unity* to enable support for KTX textures in glTFast
 #endif
 
 // #define MEASURE_TIMINGS
@@ -44,13 +44,7 @@ using UnityEngine.Assertions;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Profiling;
 using UnityEngine;
-
 using Debug = UnityEngine.Debug;
-
-[assembly: InternalsVisibleTo("glTFast.Editor")]
-[assembly: InternalsVisibleTo("glTFast.Editor.Tests")]
-[assembly: InternalsVisibleTo("glTFast.Export")]
-[assembly: InternalsVisibleTo("glTFast.Tests")]
 
 namespace GLTFast
 {
@@ -236,8 +230,13 @@ namespace GLTFast
         /// </summary>
         Texture2D[] m_Textures;
 
+#if KTX
+        HashSet<int> m_NonFlippedYTextureIndices;
+#endif
         ImageFormat[] m_ImageFormats;
+#if !UNITY_VISIONOS
         bool[] m_ImageReadable;
+#endif
         bool[] m_ImageGamma;
 
         /// optional glTF-binary buffer
@@ -831,6 +830,16 @@ namespace GLTFast
             return null;
         }
 
+        /// <inheritdoc cref="IGltfReadable.IsTextureYFlipped"/>
+        public bool IsTextureYFlipped(int index = 0)
+        {
+#if KTX
+            return (m_NonFlippedYTextureIndices == null || !m_NonFlippedYTextureIndices.Contains(index)) && GetSourceTexture(index).IsKtx;
+#else
+            return false;
+#endif
+        }
+
 #if UNITY_ANIMATION
         /// <summary>
         /// Returns all imported animation clips
@@ -1128,6 +1137,7 @@ namespace GLTFast
         {
             if (extensions == null)
                 return true;
+            var allExtensionsSupported = true;
             foreach (var ext in extensions)
             {
                 var supported = k_SupportedExtensions.Contains(ext);
@@ -1147,31 +1157,52 @@ namespace GLTFast
 #if !DRACO_UNITY
                     if (ext == ExtensionName.DracoMeshCompression)
                     {
-                        m_Logger?.Error(LogCode.PackageMissing, "DracoUnity", ext);
-
+                        m_Logger?.Log(
+                            required ? LogType.Error : LogType.Warning,
+                            LogCode.PackageMissing,
+                            "Draco for Unity",
+                            ext
+                            );
                     }
+                    else
+#endif
+#if !MESHOPT
+                    if (ext == ExtensionName.MeshoptCompression)
+                    {
+                        m_Logger?.Log(
+                            required ? LogType.Error : LogType.Warning,
+                            LogCode.PackageMissing,
+                            "meshoptimizer decompression for Unity",
+                            ext
+                        );
+                    }
+                    else
 #endif
 #if !KTX_UNITY
                     if (ext == ExtensionName.TextureBasisUniversal)
                     {
-                        m_Logger?.Error(LogCode.PackageMissing, "KtxUnity", ext);
+                        m_Logger?.Log(
+                            required ? LogType.Error : LogType.Warning,
+                            LogCode.PackageMissing,
+                            "KTX for Unity",
+                            ext
+                            );
                     }
                     else
 #endif
+                    if (required)
                     {
-                        if (required)
-                        {
-                            m_Logger?.Error(LogCode.ExtensionUnsupported, ext);
-                        }
-                        else
-                        {
-                            m_Logger?.Warning(LogCode.ExtensionUnsupported, ext);
-                        }
+                        m_Logger?.Error(LogCode.ExtensionUnsupported, ext);
                     }
-                    return false;
+                    else
+                    {
+                        m_Logger?.Warning(LogCode.ExtensionUnsupported, ext);
+                    }
+
+                    allExtensionsSupported = false;
                 }
             }
-            return true;
+            return allExtensionsSupported;
         }
 
         async Task<bool> LoadGltf(string json, Uri url)
@@ -1254,11 +1285,13 @@ namespace GLTFast
                     imageVariants[imageIndex].Add(txt.sampler);
                 }
 
+#if !UNITY_VISIONOS
                 m_ImageReadable = new bool[m_Images.Length];
                 for (int i = 0; i < m_Images.Length; i++)
                 {
                     m_ImageReadable[i] = imageVariants[i] != null && imageVariants[i].Count > 1;
                 }
+#endif
 
                 Profiler.EndSample();
                 List<Task> imageTasks = null;
@@ -1302,7 +1335,16 @@ namespace GLTFast
                                 // Not Inside buffer
                                 if (!string.IsNullOrEmpty(img.uri))
                                 {
-                                    LoadImage(imageIndex, UriHelper.GetUriString(img.uri, baseUri), !m_ImageReadable[imageIndex], imgFormat == ImageFormat.Ktx);
+                                    LoadImage(
+                                        imageIndex,
+                                        UriHelper.GetUriString(img.uri, baseUri),
+#if UNITY_VISIONOS
+                                        false,
+#else
+                                        !m_ImageReadable[imageIndex],
+#endif
+                                        imgFormat == ImageFormat.Ktx
+                                        );
                                 }
                                 else
                                 {
@@ -1350,7 +1392,14 @@ namespace GLTFast
             // TODO: Investigate alternative: native texture creation in worker thread
             bool forceSampleLinear = m_ImageGamma != null && !m_ImageGamma[imageIndex];
             var txt = CreateEmptyTexture(img, imageIndex, forceSampleLinear);
-            txt.LoadImage(data,!m_ImageReadable[imageIndex]);
+            txt.LoadImage(
+                data,
+#if UNITY_VISIONOS
+                false
+#else
+                !m_ImageReadable[imageIndex]
+#endif
+                );
             m_Images[imageIndex] = txt;
             Profiler.EndSample();
         }
@@ -1424,7 +1473,14 @@ namespace GLTFast
                         var forceSampleLinear = m_ImageGamma!=null && !m_ImageGamma[imageIndex];
                         txt = CreateEmptyTexture(Root.Images[imageIndex], imageIndex, forceSampleLinear);
                         // TODO: Investigate for NativeArray variant to avoid `www.data`
-                        txt.LoadImage(www.Data,!m_ImageReadable[imageIndex]);
+                        txt.LoadImage(
+                            www.Data,
+#if UNITY_VISIONOS
+                            false
+#else
+                            !m_ImageReadable[imageIndex]
+#endif
+                            );
 #else
                         m_Logger?.Warning(LogCode.ImageConversionNotEnabled);
                         txt = null;
@@ -1475,6 +1531,11 @@ namespace GLTFast
                 var result = await ktxContext.LoadTexture2D(forceSampleLinear);
                 if (result.errorCode == ErrorCode.Success) {
                     m_Images[imageIndex] = result.texture;
+                    if (!result.orientation.IsYFlipped())
+                    {
+                        m_NonFlippedYTextureIndices ??= new HashSet<int>();
+                        m_NonFlippedYTextureIndices.Add(imageIndex);
+                    }
                     return true;
                 }
             } else {
@@ -1560,7 +1621,7 @@ namespace GLTFast
                 }
                 m_KtxDownloadTasks.Add(imageIndex, downloadTask);
 #else
-                m_Logger?.Error(LogCode.PackageMissing, "KtxUnity", ExtensionName.TextureBasisUniversal);
+                m_Logger?.Error(LogCode.PackageMissing, "KTX for Unity", ExtensionName.TextureBasisUniversal);
                 Profiler.EndSample();
                 return;
 #endif // KTX_UNITY
@@ -1899,7 +1960,14 @@ namespace GLTFast
                         {
                             jh.jobHandle.Complete();
 #if UNITY_IMAGECONVERSION
-                            m_Images[jh.imageIndex].LoadImage(jh.buffer,!m_ImageReadable[jh.imageIndex]);
+                            m_Images[jh.imageIndex].LoadImage(
+                                jh.buffer,
+#if UNITY_VISIONOS
+                                false
+#else
+                                !m_ImageReadable[jh.imageIndex]
+#endif
+                                );
 #endif
                             jh.gcHandle.Free();
                             m_ImageCreateContexts.RemoveAt(i);
@@ -2429,7 +2497,9 @@ namespace GLTFast
             m_ImageCreateContexts = null;
             m_Images = null;
             m_ImageFormats = null;
+#if !UNITY_VISIONOS
             m_ImageReadable = null;
+#endif
             m_ImageGamma = null;
             m_GlbBinChunk = null;
             m_MaterialPointsSupport = null;
@@ -2801,7 +2871,7 @@ namespace GLTFast
                             Profiler.EndSample();
                             await m_DeferAgent.BreakPoint();
 #else
-                            m_Logger?.Error(LogCode.PackageMissing, "KtxUnity", ExtensionName.TextureBasisUniversal);
+                            m_Logger?.Error(LogCode.PackageMissing, "KTX for Unity", ExtensionName.TextureBasisUniversal);
 #endif // KTX_UNITY
                         }
                         else
@@ -3371,7 +3441,7 @@ namespace GLTFast
                             }
 
                             if (!bounds.HasValue) {
-                                m_Logger.Error(LogCode.MeshBoundsMissing, meshIndex.ToString());
+                                m_Logger?.Error(LogCode.MeshBoundsMissing, meshIndex.ToString());
                             }
                             var dracoContext = new PrimitiveDracoCreateContext(
                                 meshIndex,
@@ -3444,7 +3514,7 @@ namespace GLTFast
                 );
                 if (!success)
                 {
-                    m_Logger.Error(LogCode.MorphTargetContextFail);
+                    m_Logger?.Error(LogCode.MorphTargetContextFail);
                     break;
                 }
             }
@@ -3591,7 +3661,7 @@ namespace GLTFast
             var bufferView = gltf.BufferViews[dracoExt.bufferView];
             var buffer = GetBufferViewSlice(bufferView);
 
-            c.StartDecode(buffer, dracoExt.attributes.WEIGHTS_0, dracoExt.attributes.JOINTS_0);
+            c.StartDecode(buffer, dracoExt.attributes);
         }
 #endif
 
@@ -3654,7 +3724,7 @@ namespace GLTFast
             //Assert.AreEqual(accessor.count * GetLength(accessor.typeEnum) * 4 , (int) chunk.length);
             if (accessor.IsSparse)
             {
-                m_Logger.Error(LogCode.SparseAccessor, "indices");
+                m_Logger?.Error(LogCode.SparseAccessor, "indices");
             }
 
             Profiler.BeginSample("CreateJob");
@@ -3750,7 +3820,7 @@ namespace GLTFast
             //Assert.AreEqual(accessor.count * GetLength(accessor.typeEnum) * 4 , (int) chunk.length);
             if (accessor.IsSparse)
             {
-                m_Logger.Error(LogCode.SparseAccessor, "Matrix");
+                m_Logger?.Error(LogCode.SparseAccessor, "Matrix");
             }
 
             Profiler.BeginSample("CreateJob");
@@ -3825,7 +3895,7 @@ namespace GLTFast
             Assert.AreEqual(accessor.GetAttributeType(), GltfAccessorAttributeType.VEC3);
             if (accessor.IsSparse)
             {
-                m_Logger.Error(LogCode.SparseAccessor, "Vector3");
+                m_Logger?.Error(LogCode.SparseAccessor, "Vector3");
             }
 
             Profiler.BeginSample("CreateJob");
@@ -3877,7 +3947,7 @@ namespace GLTFast
             Assert.AreEqual(accessor.GetAttributeType(), GltfAccessorAttributeType.VEC4);
             if (accessor.IsSparse)
             {
-                m_Logger.Error(LogCode.SparseAccessor, "Vector4");
+                m_Logger?.Error(LogCode.SparseAccessor, "Vector4");
             }
 
             Profiler.BeginSample("CreateJob");
@@ -3932,7 +4002,7 @@ namespace GLTFast
 
             Assert.AreEqual(accessor.GetAttributeType(), GltfAccessorAttributeType.SCALAR);
             if (accessor.IsSparse) {
-                m_Logger.Error(LogCode.SparseAccessor,"scalars");
+                m_Logger?.Error(LogCode.SparseAccessor,"scalars");
             }
 
             if (accessor.componentType == GltfComponentType.Float) {
@@ -4176,6 +4246,11 @@ namespace GLTFast
                 if (kTask.Result.result.errorCode == ErrorCode.Success) {
                     var ktx = m_KtxLoadContextsBuffer[i];
                     m_Images[ktx.imageIndex] = kTask.Result.result.texture;
+                    if (!kTask.Result.result.orientation.IsYFlipped())
+                    {
+                        m_NonFlippedYTextureIndices ??= new HashSet<int>();
+                        m_NonFlippedYTextureIndices.Add(ktx.imageIndex);
+                    }
                     await m_DeferAgent.BreakPoint();
                 }
                 ktxTasks.Remove(kTask);
